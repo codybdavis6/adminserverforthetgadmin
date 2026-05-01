@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: telegram-leaderboard-adminserver
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_GROUP_CHAT_ID
+        sync: false
+      - key: DATABASE_URL
+        sync: false

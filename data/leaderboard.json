@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "chats": {
+    "manual-8eaf53ba-5c32-4f96-a494-2ec6ccfd77f8": {
+      "id": "manual-8eaf53ba-5c32-4f96-a494-2ec6ccfd77f8",
+      "title": "james",
+      "type": "manual",
+      "members": {},
+      "createdAt": "2026-05-01T22:48:07.894Z",
+      "updatedAt": "2026-05-01T23:13:30.017Z",
+      "users": {}
+    },
+    "-5065109902": {
+      "id": "-5065109902",
+      "title": "zeno and jastronbot",
+      "type": "group",
+      "members": {
+        "tg-1227166718": {
+          "id": "tg-1227166718",
+          "telegramId": "1227166718",
+          "username": "zenoclaus",
+          "firstName": "zeno",
+          "lastName": "",
+          "amount": 50000,
+          "source": "telegram",
+          "createdAt": "2026-05-01T22:55:10.579Z",
+          "updatedAt": "2026-05-01T22:56:05.454Z"
+        },
+        "manual-d3f60be5-72aa-4f03-9a5d-4d1b18e826c8": {
+          "id": "manual-d3f60be5-72aa-4f03-9a5d-4d1b18e826c8",
+          "telegramId": null,
+          "username": "alex",
+          "firstName": "",
+          "lastName": "",
+          "amount": 100000,
+          "source": "manual",
+          "createdAt": "2026-05-01T22:56:12.755Z",
+          "updatedAt": "2026-05-01T22:56:12.755Z"
+        }
+      },
+      "createdAt": "2026-05-01T22:55:10.569Z",
+      "updatedAt": "2026-05-01T22:56:12.755Z",
+      "users": {
+        "tg-1227166718": {
+          "id": "tg-1227166718",
+          "telegramId": "1227166718",
+          "username": "zenoclaus",
+          "firstName": "zeno",
+          "lastName": "",
+          "createdAt": "2026-05-01T22:55:10.579Z",
+          "updatedAt": "2026-05-01T22:56:05.454Z"
+        }
+      }
+    }
+  },
+  "updatedAt": "2026-05-01T23:13:30.017Z"
+}
