@@ -35,6 +35,13 @@ export function formatAmount(value) {
   return new Intl.NumberFormat("en").format(amount);
 }
 
+export function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 export function memberLabel(member) {
   if (member.username) return `@${member.username}`;
   const fullName = [member.firstName, member.lastName].filter(Boolean).join(" ");

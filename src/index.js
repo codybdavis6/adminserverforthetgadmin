@@ -4,7 +4,7 @@ import express from "express";
 import morgan from "morgan";
 import { Telegraf } from "telegraf";
 import { createStore } from "./createStore.js";
-import { formatAmount, memberLabel, memberTag } from "./format.js";
+import { escapeHtml, formatAmount, memberLabel, memberTag } from "./format.js";
 
 const port = Number(process.env.PORT || 4000);
 const adminToken = process.env.ADMIN_TOKEN?.trim();
@@ -112,6 +112,34 @@ function prioritizeTelegramAdmins(members, adminIds) {
   return [...admins, ...others];
 }
 
+function renderBoardMessages({ title, chatTitle, summary, emptyMessage, members }) {
+  if (!members.length) {
+    return [
+      `<b>${escapeHtml(title)}</b>\n<b>Group:</b> ${escapeHtml(chatTitle)}\n\n${escapeHtml(emptyMessage)}`
+    ];
+  }
+
+  const heading = `<b>${escapeHtml(title)}</b>\n<b>Group:</b> ${escapeHtml(chatTitle)}\n<i>${escapeHtml(summary)}</i>`;
+  const messages = [];
+  let lines = [heading, ""];
+
+  for (const [index, member] of members.entries()) {
+    const tag = memberTag(member);
+    const line = `<b>${String(index + 1).padStart(2, "0")}.</b> ${escapeHtml(memberLabel(member))}${tag ? ` <i>${escapeHtml(tag)}</i>` : ""} <code>${formatAmount(member.amount)}</code>`;
+    const nextMessage = [...lines, line].join("\n");
+
+    if (nextMessage.length > telegramMessageLimit && lines.length > 2) {
+      messages.push(lines.join("\n"));
+      lines = [`<b>${escapeHtml(title)} (cont.)</b>`, "", line];
+    } else {
+      lines.push(line);
+    }
+  }
+
+  messages.push(lines.join("\n"));
+  return messages;
+}
+
 function isAllowedTelegramChat(chatId) {
   return Boolean(allowedTelegramChatId) && String(chatId) === allowedTelegramChatId;
 }
@@ -158,30 +186,14 @@ async function getOrderedLeaderboard(chatId) {
 
 async function renderLeaderboard(chatId) {
   const { chat, members } = await getOrderedLeaderboard(chatId);
-
-  if (!members.length) {
-    return [`Leaderboard for ${chat.title}\n\nNo members have been added yet.`];
-  }
-
-  const heading = `Leaderboard for ${chat.title}`;
-  const messages = [];
-  let lines = [heading, ""];
-
-  for (const [index, member] of members.entries()) {
-    const tag = memberTag(member);
-    const line = `${index + 1}. ${memberLabel(member)}${tag ? ` ${tag}` : ""} ${formatAmount(member.amount)}`;
-    const nextMessage = [...lines, line].join("\n");
-
-    if (nextMessage.length > telegramMessageLimit && lines.length > 2) {
-      messages.push(lines.join("\n"));
-      lines = [`${heading} continued`, "", line];
-    } else {
-      lines.push(line);
-    }
-  }
-
-  messages.push(lines.join("\n"));
-  return messages;
+  const activeCount = members.filter((member) => member.amount > 0).length;
+  return renderBoardMessages({
+    title: "Spy Leaderboard",
+    chatTitle: chat.title,
+    summary: `${members.length} tracked members | ${activeCount} with a score`,
+    emptyMessage: "No ranked members have been added yet.",
+    members
+  });
 }
 
 async function sendLeaderboard(sendMessage, chatId) {
@@ -356,7 +368,10 @@ app.post(
     }
 
     assertAllowedTelegramChat(chat.id);
-    await sendLeaderboard((message) => telegramApi.sendMessage(chat.id, message), req.params.chatId);
+    await sendLeaderboard(
+      (message) => telegramApi.sendMessage(chat.id, message, { parse_mode: "HTML" }),
+      req.params.chatId
+    );
     res.json({ ok: true });
   })
 );
