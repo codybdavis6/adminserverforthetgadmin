@@ -19,6 +19,10 @@ function normalizeTag(tag) {
   return String(tag || "").trim().slice(0, 40);
 }
 
+function isPinnedAdmin(member) {
+  return normalizeTag(member.tag).toLowerCase() === "admin";
+}
+
 function publicChat(chat) {
   return {
     id: chat.id,
@@ -63,6 +67,9 @@ function publicMember(member) {
 
 function sortMembers(members) {
   return [...members].sort((left, right) => {
+    const rightPinned = isPinnedAdmin(right);
+    const leftPinned = isPinnedAdmin(left);
+    if (rightPinned !== leftPinned) return Number(rightPinned) - Number(leftPinned);
     if (right.amount !== left.amount) return right.amount - left.amount;
     return (left.username || left.firstName || "").localeCompare(right.username || right.firstName || "");
   });

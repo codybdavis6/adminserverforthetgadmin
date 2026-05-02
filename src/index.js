@@ -83,6 +83,35 @@ function isTelegramStoredChat(chat) {
   return chat.type === "group" || chat.type === "supergroup";
 }
 
+async function getTelegramAdminIds(chatId) {
+  if (!telegramApi) return null;
+
+  try {
+    const administrators = await telegramApi.getChatAdministrators(chatId);
+    return new Set(administrators.map((administrator) => `tg-${administrator.user.id}`));
+  } catch (error) {
+    console.warn(`Could not read Telegram admins for ${chatId}: ${error.message}`);
+    return null;
+  }
+}
+
+function prioritizeTelegramAdmins(members, adminIds) {
+  if (!adminIds?.size) return members;
+
+  const admins = [];
+  const others = [];
+
+  for (const member of members) {
+    if (adminIds.has(member.id)) {
+      admins.push(member);
+    } else {
+      others.push(member);
+    }
+  }
+
+  return [...admins, ...others];
+}
+
 function isAllowedTelegramChat(chatId) {
   return Boolean(allowedTelegramChatId) && String(chatId) === allowedTelegramChatId;
 }
@@ -116,8 +145,19 @@ async function getAllowedChat(chatId) {
   return chat;
 }
 
+async function getOrderedLeaderboard(chatId) {
+  const leaderboard = await store.getLeaderboard(chatId);
+  if (!isTelegramStoredChat(leaderboard.chat)) return leaderboard;
+
+  const adminIds = await getTelegramAdminIds(leaderboard.chat.id);
+  return {
+    ...leaderboard,
+    members: prioritizeTelegramAdmins(leaderboard.members, adminIds)
+  };
+}
+
 async function renderLeaderboard(chatId) {
-  const { chat, members } = await store.getLeaderboard(chatId);
+  const { chat, members } = await getOrderedLeaderboard(chatId);
 
   if (!members.length) {
     return [`Leaderboard for ${chat.title}\n\nNo members have been added yet.`];
@@ -254,7 +294,7 @@ app.get(
   requireAdmin,
   asyncRoute(async (req, res) => {
     await getAllowedChat(req.params.chatId);
-    res.json(await store.getLeaderboard(req.params.chatId));
+    res.json(await getOrderedLeaderboard(req.params.chatId));
   })
 );
 
