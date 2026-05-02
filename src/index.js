@@ -15,6 +15,8 @@ const telegramMessageLimit = 3900;
 
 const store = createStore();
 await store.init();
+console.log(`Admin storage: ${process.env.DATABASE_URL ? "postgres" : "json"}.`);
+console.log(`Allowed Telegram chat: ${allowedTelegramChatId || "not configured"}.`);
 
 async function registerAllowedTelegramChat() {
   if (!telegramApi || !allowedTelegramChatId) return;
@@ -161,6 +163,27 @@ app.get("/api/health", (req, res) => {
     updatedAt: new Date().toISOString()
   });
 });
+
+app.get(
+  "/api/debug/storage",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    const chats = await store.listChats();
+    res.json({
+      storage: process.env.DATABASE_URL ? "postgres" : "json",
+      allowedTelegramChatId,
+      chatCount: chats.length,
+      chats: chats.map((chat) => ({
+        id: chat.id,
+        title: chat.title,
+        type: chat.type,
+        memberCount: chat.memberCount,
+        knownUserCount: chat.knownUserCount,
+        telegramMemberCount: chat.telegramMemberCount
+      }))
+    });
+  })
+);
 
 app.get(
   "/api/chats",

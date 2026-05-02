@@ -376,6 +376,38 @@ export class LeaderboardStore {
     return publicMember(member);
   }
 
+  async ensureLeaderboardMemberForUser(chatId, userId, defaults = {}) {
+    const chat = this.getChat(chatId);
+    const user = chat.users[String(userId)];
+
+    if (!user) {
+      const error = new Error("Known user not found.");
+      error.status = 404;
+      throw error;
+    }
+
+    const existing = chat.members[user.id];
+    if (existing) return publicMember(existing);
+
+    const timestamp = now();
+    const member = {
+      id: user.id,
+      telegramId: user.telegramId || null,
+      username: user.username || "",
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      amount: parseAmount(defaults.amount ?? 0),
+      source: user.source === "telegram" ? "telegram" : "manual",
+      createdAt: timestamp,
+      updatedAt: timestamp
+    };
+
+    chat.members[member.id] = member;
+    chat.updatedAt = timestamp;
+    await this.persist();
+    return publicMember(member);
+  }
+
   async addKnownUsers(chatId, input) {
     const chat = this.getChat(chatId);
     const rawUsers = Array.isArray(input.users)

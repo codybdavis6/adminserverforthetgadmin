@@ -26,6 +26,12 @@ Telegram bots cannot fetch every existing group member. The API supports manual 
 POST /api/chats/:chatId/users/import
 ```
 
+Debug shared storage:
+
+```text
+GET /api/debug/storage
+```
+
 Local dev:
 
 ```bash
