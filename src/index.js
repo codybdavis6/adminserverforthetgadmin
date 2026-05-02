@@ -16,6 +16,35 @@ const telegramMessageLimit = 3900;
 const store = createStore();
 await store.init();
 
+async function registerAllowedTelegramChat() {
+  if (!telegramApi || !allowedTelegramChatId) return;
+
+  try {
+    const chat = await telegramApi.getChat(allowedTelegramChatId);
+    let telegramMemberCount = null;
+
+    try {
+      telegramMemberCount = await telegramApi.callApi("getChatMemberCount", {
+        chat_id: allowedTelegramChatId
+      });
+    } catch (error) {
+      console.warn(`Could not read member count for ${allowedTelegramChatId}: ${error.message}`);
+    }
+
+    await store.ensureChat({
+      id: chat.id,
+      title: chat.title || chat.username || "Telegram group",
+      type: chat.type,
+      telegramMemberCount
+    });
+    console.log(`Registered Telegram group ${chat.title || chat.id} in admin storage.`);
+  } catch (error) {
+    console.warn(`Could not register TELEGRAM_GROUP_CHAT_ID=${allowedTelegramChatId}: ${error.message}`);
+  }
+}
+
+await registerAllowedTelegramChat();
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -157,6 +186,16 @@ app.get(
   asyncRoute(async (req, res) => {
     await getAllowedChat(req.params.chatId);
     res.json(await store.getKnownUsers(req.params.chatId));
+  })
+);
+
+app.post(
+  "/api/chats/:chatId/users/import",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    await getAllowedChat(req.params.chatId);
+    const result = await store.addKnownUsers(req.params.chatId, req.body || {});
+    res.status(201).json(result);
   })
 );
 

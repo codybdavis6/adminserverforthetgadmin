@@ -125,6 +125,11 @@ export class PostgresLeaderboardStore extends LeaderboardStore {
     return this.withLockedState(() => super.addMember(chatId, input));
   }
 
+  async addKnownUsers(chatId, input) {
+    if (this.lockClient) return super.addKnownUsers(chatId, input);
+    return this.withLockedState(() => super.addKnownUsers(chatId, input));
+  }
+
   async updateMember(chatId, memberId, input) {
     if (this.lockClient) return super.updateMember(chatId, memberId, input);
     return this.withLockedState(() => super.updateMember(chatId, memberId, input));

@@ -18,6 +18,14 @@ DATABASE_URL=your_postgres_connection_string
 DATABASE_SSL=true
 ```
 
+The server auto-registers `TELEGRAM_GROUP_CHAT_ID` on startup if `BOT_TOKEN` is valid and the bot is inside that group.
+
+Telegram bots cannot fetch every existing group member. The API supports manual known-user import at:
+
+```text
+POST /api/chats/:chatId/users/import
+```
+
 Local dev:
 
 ```bash

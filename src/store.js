@@ -22,6 +22,7 @@ function publicChat(chat) {
     type: chat.type,
     memberCount: Object.keys(chat.members || {}).length,
     knownUserCount: Object.keys(chat.users || {}).length,
+    telegramMemberCount: chat.telegramMemberCount || null,
     createdAt: chat.createdAt,
     updatedAt: chat.updatedAt
   };
@@ -34,6 +35,7 @@ function publicUser(user, chat) {
     username: user.username,
     firstName: user.firstName,
     lastName: user.lastName,
+    source: user.source || "manual",
     isOnLeaderboard: Boolean(chat.members?.[user.id]),
     createdAt: user.createdAt,
     updatedAt: user.updatedAt
@@ -118,6 +120,7 @@ export class LeaderboardStore {
           username: member.username || "",
           firstName: member.firstName || "",
           lastName: member.lastName || "",
+          source: "telegram",
           createdAt: member.createdAt || now(),
           updatedAt: member.updatedAt || now()
         };
@@ -175,6 +178,7 @@ export class LeaderboardStore {
         type: input.type || "manual",
         members: {},
         users: {},
+        telegramMemberCount: input.telegramMemberCount || null,
         createdAt: timestamp,
         updatedAt: timestamp
       };
@@ -191,6 +195,10 @@ export class LeaderboardStore {
     }
     if (input.type && existing.type !== input.type) {
       existing.type = input.type;
+      changed = true;
+    }
+    if (Object.hasOwn(input, "telegramMemberCount") && existing.telegramMemberCount !== input.telegramMemberCount) {
+      existing.telegramMemberCount = input.telegramMemberCount;
       changed = true;
     }
 
@@ -249,6 +257,7 @@ export class LeaderboardStore {
         username,
         firstName: userInput.first_name || "",
         lastName: userInput.last_name || "",
+        source: "telegram",
         createdAt: timestamp,
         updatedAt: timestamp
       };
@@ -260,7 +269,8 @@ export class LeaderboardStore {
       telegramId,
       username,
       firstName: userInput.first_name || "",
-      lastName: userInput.last_name || ""
+      lastName: userInput.last_name || "",
+      source: "telegram"
     };
 
     for (const [key, value] of Object.entries(nextUserFields)) {
@@ -287,6 +297,9 @@ export class LeaderboardStore {
           ...manualMember,
           id,
           telegramId,
+          username,
+          firstName: userInput.first_name || "",
+          lastName: userInput.last_name || "",
           source: "telegram"
         };
         chat.members[id] = member;
@@ -352,7 +365,7 @@ export class LeaderboardStore {
       firstName,
       lastName,
       amount: parseAmount(input.amount ?? 0),
-      source: selectedUser ? "telegram" : "manual",
+      source: selectedUser?.source === "telegram" ? "telegram" : "manual",
       createdAt: timestamp,
       updatedAt: timestamp
     };
@@ -361,6 +374,55 @@ export class LeaderboardStore {
     chat.updatedAt = timestamp;
     await this.persist();
     return publicMember(member);
+  }
+
+  async addKnownUsers(chatId, input) {
+    const chat = this.getChat(chatId);
+    const rawUsers = Array.isArray(input.users)
+      ? input.users
+      : String(input.text || "")
+          .split(/[\s,]+/)
+          .map((value) => value.trim())
+          .filter(Boolean);
+
+    const timestamp = now();
+    const created = [];
+    const skipped = [];
+
+    for (const rawUser of rawUsers) {
+      const username = normalizeUsername(rawUser);
+      if (!username) continue;
+
+      const existing = Object.values(chat.users).find((user) => {
+        return user.username?.toLowerCase() === username.toLowerCase();
+      });
+
+      if (existing) {
+        skipped.push(publicUser(existing, chat));
+        continue;
+      }
+
+      const user = {
+        id: `manual-user-${randomUUID()}`,
+        telegramId: null,
+        username,
+        firstName: "",
+        lastName: "",
+        source: "manual",
+        createdAt: timestamp,
+        updatedAt: timestamp
+      };
+
+      chat.users[user.id] = user;
+      created.push(publicUser(user, chat));
+    }
+
+    if (created.length) {
+      chat.updatedAt = timestamp;
+      await this.persist();
+    }
+
+    return { created, skipped };
   }
 
   async updateMember(chatId, memberId, input) {
