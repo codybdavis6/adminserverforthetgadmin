@@ -14,9 +14,11 @@ Environment variables:
 ADMIN_TOKEN=your_private_admin_password
 BOT_TOKEN=your_botfather_token
 TELEGRAM_GROUP_CHAT_ID=-5065109902
-DATABASE_URL=your_postgres_connection_string
-DATABASE_SSL=true
+MONGODB_URI=your_mongodb_atlas_connection_string
+MONGODB_DB=telegram_leaderboard
 ```
+
+MongoDB is used when `MONGODB_URI` is set. Postgres is still supported as an optional fallback through `DATABASE_URL`.
 
 The server auto-registers `TELEGRAM_GROUP_CHAT_ID` on startup if `BOT_TOKEN` is valid and the bot is inside that group.
 
@@ -32,6 +34,17 @@ Debug shared storage:
 GET /api/debug/storage
 ```
 
+Admin delete endpoints:
+
+```text
+DELETE /api/chats/:chatId/leaderboard/:memberId
+DELETE /api/chats/:chatId/leaderboard
+DELETE /api/chats/:chatId/users/:userId
+DELETE /api/chats/:chatId/users
+```
+
+Leaderboard members support an optional `tag` field. Tags are editable in the admin dashboard and appear in Telegram rank output.
+
 Local dev:
 
 ```bash
@@ -40,8 +53,8 @@ cp .env.example .env
 npm run dev
 ```
 
-Migrate local JSON data to Postgres:
+Migrate local JSON data to MongoDB:
 
 ```bash
-npm run migrate:postgres
+npm run migrate:mongodb
 ```

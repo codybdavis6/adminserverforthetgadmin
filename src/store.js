@@ -15,6 +15,10 @@ function chatTitle(chat) {
   return chat.title || chat.username || chat.first_name || "Untitled chat";
 }
 
+function normalizeTag(tag) {
+  return String(tag || "").trim().slice(0, 40);
+}
+
 function publicChat(chat) {
   return {
     id: chat.id,
@@ -50,6 +54,7 @@ function publicMember(member) {
     firstName: member.firstName,
     lastName: member.lastName,
     amount: member.amount,
+    tag: member.tag || "",
     source: member.source,
     createdAt: member.createdAt,
     updatedAt: member.updatedAt
@@ -113,6 +118,11 @@ export class LeaderboardStore {
     }
 
     for (const member of Object.values(chat.members)) {
+      if (typeof member.tag !== "string") {
+        member.tag = "";
+        changed = true;
+      }
+
       if (member.telegramId && member.source === "telegram" && !chat.users[member.id]) {
         chat.users[member.id] = {
           id: member.id,
@@ -365,6 +375,7 @@ export class LeaderboardStore {
       firstName,
       lastName,
       amount: parseAmount(input.amount ?? 0),
+      tag: normalizeTag(input.tag),
       source: selectedUser?.source === "telegram" ? "telegram" : "manual",
       createdAt: timestamp,
       updatedAt: timestamp
@@ -397,6 +408,7 @@ export class LeaderboardStore {
       firstName: user.firstName || "",
       lastName: user.lastName || "",
       amount: parseAmount(defaults.amount ?? 0),
+      tag: normalizeTag(defaults.tag),
       source: user.source === "telegram" ? "telegram" : "manual",
       createdAt: timestamp,
       updatedAt: timestamp
@@ -480,6 +492,9 @@ export class LeaderboardStore {
     if (Object.hasOwn(input, "amount")) {
       member.amount = parseAmount(input.amount);
     }
+    if (Object.hasOwn(input, "tag")) {
+      member.tag = normalizeTag(input.tag);
+    }
 
     member.updatedAt = timestamp;
     chat.updatedAt = timestamp;
@@ -497,6 +512,47 @@ export class LeaderboardStore {
     }
 
     delete chat.members[id];
+    chat.updatedAt = now();
+    await this.persist();
+  }
+
+  async deleteAllMembers(chatId) {
+    const chat = this.getChat(chatId);
+    chat.members = {};
+    chat.updatedAt = now();
+    await this.persist();
+  }
+
+  async deleteUser(chatId, userId) {
+    const chat = this.getChat(chatId);
+    const id = String(userId);
+    if (!chat.users[id]) {
+      const error = new Error("User not found.");
+      error.status = 404;
+      throw error;
+    }
+
+    const user = chat.users[id];
+    delete chat.users[id];
+
+    for (const [memberId, member] of Object.entries(chat.members)) {
+      const sameTelegramId = user.telegramId && member.telegramId === user.telegramId;
+      const sameUsername =
+        user.username && member.username && member.username.toLowerCase() === user.username.toLowerCase();
+
+      if (memberId === id || sameTelegramId || sameUsername) {
+        delete chat.members[memberId];
+      }
+    }
+
+    chat.updatedAt = now();
+    await this.persist();
+  }
+
+  async deleteAllUsers(chatId) {
+    const chat = this.getChat(chatId);
+    chat.users = {};
+    chat.members = {};
     chat.updatedAt = now();
     await this.persist();
   }

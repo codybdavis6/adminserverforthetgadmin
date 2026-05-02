@@ -40,3 +40,8 @@ export function memberLabel(member) {
   const fullName = [member.firstName, member.lastName].filter(Boolean).join(" ");
   return fullName || "Unknown user";
 }
+
+export function memberTag(member) {
+  const tag = String(member.tag || "").trim();
+  return tag ? `[${tag}]` : "";
+}

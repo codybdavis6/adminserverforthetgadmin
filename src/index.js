@@ -4,7 +4,7 @@ import express from "express";
 import morgan from "morgan";
 import { Telegraf } from "telegraf";
 import { createStore } from "./createStore.js";
-import { formatAmount, memberLabel } from "./format.js";
+import { formatAmount, memberLabel, memberTag } from "./format.js";
 
 const port = Number(process.env.PORT || 4000);
 const adminToken = process.env.ADMIN_TOKEN?.trim();
@@ -15,8 +15,14 @@ const telegramMessageLimit = 3900;
 
 const store = createStore();
 await store.init();
-console.log(`Admin storage: ${process.env.DATABASE_URL ? "postgres" : "json"}.`);
+console.log(`Admin storage: ${storageDriver()}.`);
 console.log(`Allowed Telegram chat: ${allowedTelegramChatId || "not configured"}.`);
+
+function storageDriver() {
+  if (process.env.MONGODB_URI) return "mongodb";
+  if (process.env.DATABASE_URL) return "postgres";
+  return "json";
+}
 
 async function registerAllowedTelegramChat() {
   if (!telegramApi || !allowedTelegramChatId) return;
@@ -122,7 +128,8 @@ async function renderLeaderboard(chatId) {
   let lines = [heading, ""];
 
   for (const [index, member] of members.entries()) {
-    const line = `${index + 1}. ${memberLabel(member)} ${formatAmount(member.amount)}`;
+    const tag = memberTag(member);
+    const line = `${index + 1}. ${memberLabel(member)}${tag ? ` ${tag}` : ""} ${formatAmount(member.amount)}`;
     const nextMessage = [...lines, line].join("\n");
 
     if (nextMessage.length > telegramMessageLimit && lines.length > 2) {
@@ -159,7 +166,7 @@ app.get("/api/health", (req, res) => {
     botHasToken: Boolean(botToken),
     allowedChatConfigured: Boolean(allowedTelegramChatId),
     canPostToTelegram: Boolean(botToken && allowedTelegramChatId),
-    storage: process.env.DATABASE_URL ? "postgres" : "json",
+    storage: storageDriver(),
     updatedAt: new Date().toISOString()
   });
 });
@@ -170,7 +177,7 @@ app.get(
   asyncRoute(async (req, res) => {
     const chats = await store.listChats();
     res.json({
-      storage: process.env.DATABASE_URL ? "postgres" : "json",
+      storage: storageDriver(),
       allowedTelegramChatId,
       chatCount: chats.length,
       chats: chats.map((chat) => ({
@@ -222,6 +229,26 @@ app.post(
   })
 );
 
+app.delete(
+  "/api/chats/:chatId/users/:userId",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    await getAllowedChat(req.params.chatId);
+    await store.deleteUser(req.params.chatId, req.params.userId);
+    res.status(204).end();
+  })
+);
+
+app.delete(
+  "/api/chats/:chatId/users",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    await getAllowedChat(req.params.chatId);
+    await store.deleteAllUsers(req.params.chatId);
+    res.status(204).end();
+  })
+);
+
 app.get(
   "/api/chats/:chatId/leaderboard",
   requireAdmin,
@@ -238,6 +265,16 @@ app.post(
     await getAllowedChat(req.params.chatId);
     const member = await store.addMember(req.params.chatId, req.body || {});
     res.status(201).json({ member });
+  })
+);
+
+app.delete(
+  "/api/chats/:chatId/leaderboard",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    await getAllowedChat(req.params.chatId);
+    await store.deleteAllMembers(req.params.chatId);
+    res.status(204).end();
   })
 );
 

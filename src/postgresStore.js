@@ -144,4 +144,19 @@ export class PostgresLeaderboardStore extends LeaderboardStore {
     if (this.lockClient) return super.deleteMember(chatId, memberId);
     return this.withLockedState(() => super.deleteMember(chatId, memberId));
   }
+
+  async deleteAllMembers(chatId) {
+    if (this.lockClient) return super.deleteAllMembers(chatId);
+    return this.withLockedState(() => super.deleteAllMembers(chatId));
+  }
+
+  async deleteUser(chatId, userId) {
+    if (this.lockClient) return super.deleteUser(chatId, userId);
+    return this.withLockedState(() => super.deleteUser(chatId, userId));
+  }
+
+  async deleteAllUsers(chatId) {
+    if (this.lockClient) return super.deleteAllUsers(chatId);
+    return this.withLockedState(() => super.deleteAllUsers(chatId));
+  }
 }
