@@ -112,6 +112,13 @@ function prioritizeTelegramAdmins(members, adminIds) {
   return [...admins, ...others];
 }
 
+function sortBoardMembers(members) {
+  return [...members].sort((left, right) => {
+    if (right.amount !== left.amount) return right.amount - left.amount;
+    return memberLabel(left).localeCompare(memberLabel(right));
+  });
+}
+
 function renderBoardMessages({ title, chatTitle, summary, emptyMessage, members }) {
   if (!members.length) {
     return [
@@ -184,6 +191,54 @@ async function getOrderedLeaderboard(chatId) {
   };
 }
 
+async function getVictimBoard(chatId) {
+  const [{ chat, users }, { members }] = await Promise.all([
+    store.getKnownUsers(chatId),
+    store.getLeaderboard(chatId)
+  ]);
+
+  const userMap = new Map(users.map((user) => [user.id, user]));
+  const memberMap = new Map(members.map((member) => [member.id, member]));
+  const combined = users.map((user) => {
+    const member = memberMap.get(user.id);
+    return {
+      id: user.id,
+      telegramId: member?.telegramId || user.telegramId || null,
+      username: member?.username || user.username || "",
+      firstName: member?.firstName || user.firstName || "",
+      lastName: member?.lastName || user.lastName || "",
+      amount: member?.amount ?? 0,
+      tag: member?.tag || "",
+      source: member?.source || user.source || "manual"
+    };
+  });
+
+  for (const member of members) {
+    if (userMap.has(member.id)) continue;
+    combined.push({
+      id: member.id,
+      telegramId: member.telegramId || null,
+      username: member.username || "",
+      firstName: member.firstName || "",
+      lastName: member.lastName || "",
+      amount: member.amount ?? 0,
+      tag: member.tag || "",
+      source: member.source || "manual"
+    });
+  }
+
+  const sorted = sortBoardMembers(combined);
+  if (!isTelegramStoredChat(chat)) {
+    return { chat, members: sorted };
+  }
+
+  const adminIds = await getTelegramAdminIds(chat.id);
+  return {
+    chat,
+    members: prioritizeTelegramAdmins(sorted, adminIds)
+  };
+}
+
 async function renderLeaderboard(chatId) {
   const { chat, members } = await getOrderedLeaderboard(chatId);
   const activeCount = members.filter((member) => member.amount > 0).length;
@@ -196,8 +251,25 @@ async function renderLeaderboard(chatId) {
   });
 }
 
+async function renderVictimBoard(chatId) {
+  const { chat, members } = await getVictimBoard(chatId);
+  const zeroCount = members.filter((member) => member.amount <= 0).length;
+  return renderBoardMessages({
+    title: "Spy Victim Board",
+    chatTitle: chat.title,
+    summary: `${members.length} tracked users | ${zeroCount} currently on 0`,
+    emptyMessage: "No tracked users have been added yet.",
+    members
+  });
+}
+
 async function sendLeaderboard(sendMessage, chatId) {
   const messages = await renderLeaderboard(chatId);
+  for (const message of messages) await sendMessage(message);
+}
+
+async function sendVictimBoard(sendMessage, chatId) {
+  const messages = await renderVictimBoard(chatId);
   for (const message of messages) await sendMessage(message);
 }
 
@@ -369,6 +441,32 @@ app.post(
 
     assertAllowedTelegramChat(chat.id);
     await sendLeaderboard(
+      (message) => telegramApi.sendMessage(chat.id, message, { parse_mode: "HTML" }),
+      req.params.chatId
+    );
+    res.json({ ok: true });
+  })
+);
+
+app.post(
+  "/api/chats/:chatId/post-victims",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    if (!telegramApi) {
+      const error = new Error("BOT_TOKEN is not configured, so the server cannot post to Telegram.");
+      error.status = 400;
+      throw error;
+    }
+
+    const chat = await getAllowedChat(req.params.chatId);
+    if (!isTelegramStoredChat(chat)) {
+      const error = new Error("This board is not linked to a Telegram group yet.");
+      error.status = 400;
+      throw error;
+    }
+
+    assertAllowedTelegramChat(chat.id);
+    await sendVictimBoard(
       (message) => telegramApi.sendMessage(chat.id, message, { parse_mode: "HTML" }),
       req.params.chatId
     );
